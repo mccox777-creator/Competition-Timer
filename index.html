@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mock Trial Timer</title>
+<meta name="description" content="Offline timer for mock trial competitions: separate clocks for the Plaintiff/Prosecution and the Defense.">
+<meta name="theme-color" content="#0f1115">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trial Timer">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a20;
+    --panel-2: #1e222a;
+    --line: #2a2f39;
+    --text: #eef1f5;
+    --muted: #8d95a3;
+    --p: #5b9cf5;
+    --d: #e8a93b;
+    --warn: #f5c542;
+    --over: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+    display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 12px 14px;
+  }
+  h1 {
+    margin: 0; font-size: 14px; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); white-space: nowrap;
+  }
+  .tools { display: flex; gap: 6px; }
+  .tools button, .ghost {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 12px; font-size: 14px; font-weight: 600;
+  }
+  .tools button:active, .ghost:active { background: #262b35; }
+  .danger { color: #ff8a8a; }
+  @media (max-width: 440px) {
+    h1 { font-size: 12px; letter-spacing: .06em; }
+    .tools button { padding: 7px 10px; font-size: 13px; }
+  }
+
+  main {
+    flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    padding: 0 12px 12px;
+  }
+  @media (orientation: portrait) and (max-width: 820px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    --c: var(--p);
+    position: relative; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+    padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 10px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .panel[data-side="d"] { --c: var(--d); }
+  .panel::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--c); }
+  .panel.running { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 0 48px -14px var(--c); }
+
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .side { font-size: clamp(17px, 2.2vw, 24px); font-weight: 750; color: var(--c); }
+  .pill {
+    flex: none; font-size: 11px; font-weight: 800; letter-spacing: .1em;
+    padding: 5px 10px; border-radius: 999px; background: #252a33; color: var(--muted);
+  }
+  .running .pill { background: var(--c); color: #0b0d10; }
+  .over .pill { background: var(--over); color: #fff; }
+
+  .label { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+  .clock { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; min-height: 0; }
+  .remaining {
+    font-size: clamp(64px, 12vw, 190px); font-weight: 750; line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+  }
+  @media (orientation: portrait) and (max-width: 820px) {
+    .remaining { font-size: min(21vw, 10.5vh); }
+  }
+  .warn .remaining { color: var(--warn); }
+  .over .remaining, .over .remLabel { color: var(--over); }
+
+  .bar { height: 8px; background: #252a33; border-radius: 999px; overflow: hidden; }
+  .fill { height: 100%; width: 0; background: var(--c); border-radius: 999px; transition: width .25s linear; }
+  .warn .fill { background: var(--warn); }
+  .over .fill { background: var(--over); }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--panel-2); border-radius: 12px; padding: 10px 12px; }
+  .val { font-size: clamp(22px, 3vw, 34px); font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+  .go {
+    width: 100%; min-height: 64px; border: 0; border-radius: 14px;
+    background: var(--c); color: #0b0d10; font-size: 22px; font-weight: 800; letter-spacing: .04em;
+  }
+  .running .go { background: var(--text); color: var(--bg); }
+  .go:active { transform: scale(.99); filter: brightness(.92); }
+
+  .adj { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .adj button {
+    background: transparent; border: 1px solid var(--line); border-radius: 10px;
+    padding: 7px 0; font-size: 13px; font-weight: 600; color: var(--muted);
+  }
+  .adj button:active { background: var(--panel-2); color: var(--text); }
+
+  .flash { animation: flash 1.2s ease-out; }
+  @keyframes flash { 0%, 40% { background: #3a1f22; } 100% { background: var(--panel); } }
+
+  footer {
+    display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    padding: 0 16px 12px; font-size: 12px; color: var(--muted);
+  }
+  #offline.ok::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3ecf8e; margin-right: 6px; vertical-align: 1px; }
+  @media (hover: none) { .keys { display: none; } }
+
+  dialog {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 16px; padding: 0; width: min(520px, 92vw); max-height: 86vh;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .dlg { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .dlg h2 { margin: 0; font-size: 18px; }
+  .dlg p { margin: 0; color: var(--muted); line-height: 1.45; font-size: 14px; }
+  .row { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  .primary { background: var(--text); color: var(--bg); border: 0; border-radius: 10px; padding: 9px 16px; font-weight: 700; }
+  .primary.red { background: var(--over); color: #fff; }
+  label.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  label.field input {
+    font: inherit; font-size: 16px; color: var(--text); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; -webkit-user-select: text; user-select: text;
+  }
+  #logList { overflow-y: auto; max-height: 50vh; display: flex; flex-direction: column; gap: 6px; }
+  .logrow { display: grid; grid-template-columns: 8px 1fr auto; gap: 10px; align-items: center; background: var(--panel-2); border-radius: 10px; padding: 9px 12px; font-size: 14px; }
+  .logrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--p); }
+  .logrow.d .dot { background: var(--d); }
+  .logrow .when { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .logrow .amt { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .empty { text-align: center; padding: 18px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mock Trial Timer</h1>
+  <div class="tools">
+    <button id="btnLog" type="button">Log</button>
+    <button id="btnSettings" type="button">Settings</button>
+    <button id="btnReset" type="button" class="danger">Reset</button>
+  </div>
+</header>
+
+<main>
+  <section class="panel" data-side="p" aria-label="Plaintiff or Prosecution timer">
+    <div class="top"><div class="side">Plaintiff / Prosecution</div><span class="pill">READY</span></div>
+    <div class="clock">
+      <div class="label remLabel">Time remaining</div>
+      <div class="remaining">70:00</div>
+    </div>
+    <div class="bar"><div class="fill"></div></div>
+    <div class="stats">
+      <div class="stat"><div class="label">Time used</div><div class="val used">0:00</div></div>
+      <div class="stat"><div class="label">Time left</div><div class="val left">70:00</div></div>
+    </div>
+    <button class="go" type="button">Start</button>
+    <div class="adj">
+      <button type="button" data-adj="-60000">-1 min</button>
+      <button type="button" data-adj="-10000">-10 sec</button>
+      <button type="button" data-adj="10000">+10 sec</button>
+      <button type="button" data-adj="60000">+1 min</button>
+    </div>
+  </section>
+
+  <section class="panel" data-side="d" aria-label="Defense timer">
+    <div class="top"><div class="side">Defense</div><span class="pill">READY</span></div>
+    <div class="clock">
+      <div class="label remLabel">Time remaining</div>
+      <div class="remaining">70:00</div>
+    </div>
+    <div class="bar"><div class="fill"></div></div>
+    <div class="stats">
+      <div class="stat"><div class="label">Time used</div><div class="val used">0:00</div></div>
+      <div class="stat"><div class="label">Time left</div><div class="val left">70:00</div></div>
+    </div>
+    <button class="go" type="button">Start</button>
+    <div class="adj">
+      <button type="button" data-adj="-60000">-1 min</button>
+      <button type="button" data-adj="-10000">-10 sec</button>
+      <button type="button" data-adj="10000">+10 sec</button>
+      <button type="button" data-adj="60000">+1 min</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span id="offline">Open once online to enable offline use</span>
+  <span class="keys">Keys: P = Plaintiff, D = Defense, Space = stop both</span>
+</footer>
+
+<dialog id="dlgReset">
+  <form method="dialog" class="dlg">
+    <h2>Reset both clocks?</h2>
+    <p>Both sides go back to the full allotment and the log is cleared. This cannot be undone.</p>
+    <div class="row">
+      <button class="ghost" value="cancel">Cancel</button>
+      <button class="primary red" value="ok">Reset</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgSettings">
+  <form method="dialog" class="dlg" id="settingsForm">
+    <h2>Settings</h2>
+    <label class="field">Minutes per side
+      <input id="setMinutes" type="number" inputmode="numeric" min="1" max="600" step="1" required>
+    </label>
+    <label class="field">First side name
+      <input id="setLabelP" type="text" maxlength="40">
+    </label>
+    <label class="field">Second side name
+      <input id="setLabelD" type="text" maxlength="40">
+    </label>
+    <p>Changing the minutes does not erase time already used.</p>
+    <div class="row">
+      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button class="primary" value="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgLog">
+  <form method="dialog" class="dlg">
+    <h2>Time log</h2>
+    <div class="totals" id="logTotals"></div>
+    <div id="logList"></div>
+    <div class="row">
+      <button class="ghost" type="button" id="btnCopy">Copy log</button>
+      <button class="primary" value="close">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const KEY = 'mock-trial-timer-state-v1';
+  const SIDES = ['p', 'd'];
+  const DEFAULT_MIN = 70;
+  const ALERTS = [5 * 60000, 60000, 0]; // vibrate when remaining time crosses these
+
+  const fresh = () => ({
+    allotMin: DEFAULT_MIN,
+    labels: { p: 'Plaintiff / Prosecution', d: 'Defense' },
+    sides: { p: { used: 0, since: null }, d: { used: 0, since: null } },
+    log: []
+  });
+
+  // ---------- state ----------
+  let S = load();
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        const s = JSON.parse(raw), f = fresh();
+        const side = k => {
+          const v = (s.sides || {})[k] || {};
+          return { used: Number(v.used) || 0, since: typeof v.since === 'number' ? v.since : null };
+        };
+        return {
+          allotMin: Number(s.allotMin) > 0 ? Number(s.allotMin) : DEFAULT_MIN,
+          labels: Object.assign(f.labels, s.labels || {}),
+          sides: { p: side('p'), d: side('d') },
+          log: Array.isArray(s.log) ? s.log : []
+        };
+      }
+    } catch (e) { /* fall through to fresh state */ }
+    return fresh();
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+  const now = () => Date.now();
+  const allotMs = () => S.allotMin * 60000;
+  const isRunning = k => S.sides[k].since != null;
+  const anyRunning = () => SIDES.some(isRunning);
+  const other = k => (k === 'p' ? 'd' : 'p');
+  const usedMs = k => {
+    const s = S.sides[k];
+    return s.used + (s.since != null ? Math.max(0, now() - s.since) : 0);
+  };
+
+  // ---------- actions ----------
+  function start(k) {
+    if (isRunning(k)) return;
+    stop(other(k), true); // only one side's clock runs at a time
+    S.sides[k].since = now();
+    commit();
+  }
+  function stop(k, quiet) {
+    const s = S.sides[k];
+    if (s.since == null) return;
+    const end = now();
+    const dur = Math.max(0, end - s.since);
+    s.used += dur;
+    S.log.push({ t: 'run', k, start: s.since, end, dur });
+    s.since = null;
+    if (!quiet) commit(); else save();
+  }
+  function toggle(k) { isRunning(k) ? stop(k) : start(k); }
+  function stopAll() { SIDES.forEach(k => stop(k, true)); commit(); }
+  function adjust(k, delta) {
+    const cur = usedMs(k);
+    const next = Math.max(0, cur + delta);
+    const applied = next - cur;
+    if (!applied) return;
+    S.sides[k].used += applied;
+    lastRem[k] = null; // don't fire alerts because of a manual correction
+    S.log.push({ t: 'adj', k, at: now(), dur: applied });
+    commit();
+  }
+  function resetAll() {
+    const keep = { allotMin: S.allotMin, labels: S.labels };
+    S = fresh();
+    S.allotMin = keep.allotMin;
+    S.labels = keep.labels;
+    lastRem.p = lastRem.d = null;
+    commit();
+  }
+  function commit() { save(); render(); updateWakeLock(); }
+
+  // ---------- formatting ----------
+  function mmss(totalSec) {
+    const m = Math.floor(totalSec / 60), s = totalSec % 60;
+    return m + ':' + String(s).padStart(2, '0');
+  }
+  const fmtUsed = ms => mmss(Math.floor(Math.max(0, ms) / 1000));
+  const fmtLeft = ms => mmss(Math.ceil(Math.max(0, ms) / 1000));
+  const fmtSigned = ms => (ms < 0 ? '-' : '+') + mmss(Math.round(Math.abs(ms) / 1000));
+  const clockTime = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+
+  // ---------- rendering ----------
+  const $ = s => document.querySelector(s);
+  const els = {};
+  SIDES.forEach(k => {
+    const root = document.querySelector(`.panel[data-side="${k}"]`);
+    els[k] = {
+      root,
+      name: root.querySelector('.side'),
+      pill: root.querySelector('.pill'),
+      remLabel: root.querySelector('.remLabel'),
+      rem: root.querySelector('.remaining'),
+      used: root.querySelector('.used'),
+      left: root.querySelector('.left'),
+      fill: root.querySelector('.fill'),
+      go: root.querySelector('.go')
+    };
+    els[k].go.addEventListener('click', () => toggle(k));
+    root.querySelectorAll('[data-adj]').forEach(b =>
+      b.addEventListener('click', () => adjust(k, Number(b.dataset.adj))));
+  });
+
+  const lastRem = { p: null, d: null };
+
+  function render() {
+    const A = allotMs();
+    const title = [];
+    SIDES.forEach(k => {
+      const e = els[k];
+      const u = usedMs(k);
+      const rem = A - u;
+      const run = isRunning(k);
+      const over = rem < 0;
+      const warn = !over && rem <= 5 * 60000;
+
+      e.name.textContent = S.labels[k];
+      e.root.classList.toggle('running', run);
+      e.root.classList.toggle('over', over);
+      e.root.classList.toggle('warn', warn);
+      e.pill.textContent = over ? (run ? 'OVER TIME' : 'OVER') : run ? 'RUNNING' : u > 0 ? 'PAUSED' : 'READY';
+      e.remLabel.textContent = over ? 'Over time by' : 'Time remaining';
+      e.rem.textContent = over ? '+' + fmtUsed(-rem) : fmtLeft(rem);
+      e.used.textContent = fmtUsed(u);
+      e.left.textContent = fmtLeft(rem);
+      e.fill.style.width = Math.min(100, (u / A) * 100) + '%';
+      e.go.textContent = run ? 'Stop' : u > 0 ? 'Resume' : 'Start';
+      e.go.setAttribute('aria-pressed', String(run));
+
+      checkAlerts(k, rem, run);
+      title.push((k === 'p' ? 'P ' : 'D ') + e.rem.textContent);
+    });
+    document.title = title.join(' | ') + ' | Mock Trial Timer';
+  }
+
+  function checkAlerts(k, rem, run) {
+    const prev = lastRem[k];
+    lastRem[k] = rem;
+    if (prev == null || !run) return;
+    for (const th of ALERTS) {
+      if (prev > th && rem <= th) {
+        buzz(th === 0 ? [300, 120, 300, 120, 300] : [200]);
+        const r = els[k].root;
+        r.classList.remove('flash'); void r.offsetWidth; r.classList.add('flash');
+      }
+    }
+  }
+  function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+
+  // ---------- keep screen awake while a clock runs ----------
+  let wakeLock = null;
+  async function updateWakeLock() {
+    try {
+      if (anyRunning() && !wakeLock && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } else if (!anyRunning() && wakeLock) {
+        await wakeLock.release();
+        wakeLock = null;
+      }
+    } catch (e) { wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { render(); updateWakeLock(); }
+  });
+
+  // ---------- dialogs ----------
+  const dlgReset = $('#dlgReset'), dlgSettings = $('#dlgSettings'), dlgLog = $('#dlgLog');
+
+  $('#btnReset').addEventListener('click', () => { dlgReset.returnValue = ''; dlgReset.showModal(); });
+  dlgReset.addEventListener('close', () => { if (dlgReset.returnValue === 'ok') resetAll(); });
+
+  $('#btnSettings').addEventListener('click', () => {
+    $('#setMinutes').value = S.allotMin;
+    $('#setLabelP').value = S.labels.p;
+    $('#setLabelD').value = S.labels.d;
+    dlgSettings.returnValue = '';
+    dlgSettings.showModal();
+  });
+  dlgSettings.addEventListener('close', () => {
+    if (dlgSettings.returnValue !== 'save') return;
+    const m = Math.round(Number($('#setMinutes').value));
+    if (m >= 1 && m <= 600) S.allotMin = m;
+    S.labels.p = $('#setLabelP').value.trim() || 'Plaintiff / Prosecution';
+    S.labels.d = $('#setLabelD').value.trim() || 'Defense';
+    lastRem.p = lastRem.d = null;
+    commit();
+  });
+
+  $('#btnLog').addEventListener('click', () => { renderLog(); dlgLog.showModal(); });
+
+  function renderLog() {
+    const totals = $('#logTotals');
+    totals.innerHTML = '';
+    SIDES.forEach(k => {
+      const box = document.createElement('div');
+      box.className = 'stat';
+      const l = document.createElement('div'); l.className = 'label'; l.textContent = S.labels[k];
+      const v = document.createElement('div'); v.className = 'val';
+      v.textContent = fmtUsed(usedMs(k)) + ' used';
+      box.append(l, v);
+      totals.append(box);
+    });
+
+    const list = $('#logList');
+    list.innerHTML = '';
+    if (!S.log.length) {
+      const p = document.createElement('p'); p.className = 'empty';
+      p.textContent = 'Nothing yet. Every start, stop, and adjustment is recorded here.';
+      list.append(p);
+      return;
+    }
+    S.log.slice().reverse().forEach(en => {
+      const row = document.createElement('div');
+      row.className = 'logrow ' + en.k;
+      const dot = document.createElement('span'); dot.className = 'dot';
+      const mid = document.createElement('div');
+      const what = document.createElement('div');
+      what.textContent = S.labels[en.k] + (en.t === 'adj' ? ': adjustment' : '');
+      const when = document.createElement('div'); when.className = 'when';
+      when.textContent = en.t === 'adj' ? clockTime(en.at) : clockTime(en.start) + ' to ' + clockTime(en.end);
+      mid.append(what, when);
+      const amt = document.createElement('span'); amt.className = 'amt';
+      amt.textContent = en.t === 'adj' ? fmtSigned(en.dur) : fmtUsed(en.dur);
+      row.append(dot, mid, amt);
+      list.append(row);
+    });
+  }
+
+  $('#btnCopy').addEventListener('click', async () => {
+    const lines = ['Mock Trial Timer log (' + S.allotMin + ' min per side)'];
+    SIDES.forEach(k => lines.push(S.labels[k] + ': ' + fmtUsed(usedMs(k)) + ' used, ' + fmtLeft(allotMs() - usedMs(k)) + ' left'));
+    lines.push('');
+    S.log.forEach(en => lines.push(en.t === 'adj'
+      ? clockTime(en.at) + '  ' + S.labels[en.k] + '  adjustment ' + fmtSigned(en.dur)
+      : clockTime(en.start) + ' to ' + clockTime(en.end) + '  ' + S.labels[en.k] + '  ' + fmtUsed(en.dur)));
+    const btn = $('#btnCopy');
+    try { await navigator.clipboard.writeText(lines.join('\n')); btn.textContent = 'Copied'; }
+    catch (e) { btn.textContent = 'Copy not available'; }
+    setTimeout(() => { btn.textContent = 'Copy log'; }, 1500);
+  });
+
+  // ---------- keyboard (computer) ----------
+  document.addEventListener('keydown', e => {
+    if (document.querySelector('dialog[open]')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const key = e.key.toLowerCase();
+    if (key === 'p' || key === '1') { e.preventDefault(); toggle('p'); }
+    else if (key === 'd' || key === '2') { e.preventDefault(); toggle('d'); }
+    else if (key === ' ') { e.preventDefault(); stopAll(); }
+  });
+
+  // ---------- offline support ----------
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(() => navigator.serviceWorker.ready)
+        .then(() => {
+          const o = $('#offline');
+          o.textContent = 'Ready for offline use';
+          o.classList.add('ok');
+        })
+        .catch(() => {});
+    });
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  } else if (location.protocol === 'file:') {
+    $('#offline').textContent = 'Running from a local file';
+  }
+
+  // ---------- go ----------
+  render();
+  updateWakeLock();
+  setInterval(render, 200);
+})();
+</script>
+</body>
+</html>
