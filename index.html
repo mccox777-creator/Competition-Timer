@@ -309,7 +309,7 @@
   const fresh = () => ({
     allotMin: DEFAULT_MIN,
     labels: { p: 'Plaintiff / Prosecution', d: 'Defense' },
-    witnesses: { p: ['Witness 1', 'Witness 2', 'Witness 3'], d: ['Witness 4', 'Witness 5', 'Witness 6'] },
+    witnesses: { p: ['Witness 1', 'Witness 2'], d: ['Witness 3', 'Witness 4'] },
     sides: { p: freshSide(), d: freshSide() },
     log: []
   });
@@ -327,7 +327,8 @@
           const cur = v.cur && TYPES[v.cur.type] ? v.cur : { type: 'open', w: null };
           return { since: typeof v.since === 'number' ? v.since : null, cur, segs: v.segs && typeof v.segs === 'object' ? v.segs : {} };
         };
-        const wl = (arr, def) => Array.isArray(arr) && arr.length ? arr.map(String) : def;
+        const OLD_DEFAULTS = ['Witness 1|Witness 2|Witness 3', 'Witness 4|Witness 5|Witness 6'];
+        const wl = (arr, def) => Array.isArray(arr) && arr.length && !OLD_DEFAULTS.includes(arr.join('|')) ? arr.map(String) : def;
         return {
           allotMin: Number(s.allotMin) > 0 ? Number(s.allotMin) : DEFAULT_MIN,
           labels: Object.assign(f.labels, s.labels || {}),

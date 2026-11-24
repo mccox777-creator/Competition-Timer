@@ -15,7 +15,7 @@ A two-clock timer for mock trial competitions. One clock for the Plaintiff/Prose
 - Turns yellow at 5:00 remaining; phones that support it vibrate at 5:00, 1:00, and 0:00
 - Correction buttons (-1 min, -10 sec, +10 sec, +1 min) that fix the current activity's time (and the totals with it)
 - Copy All button for pasting the breakdown and log into a score sheet or email
-- Settings to change the minutes per side, rename the sides, and enter each side's witness names
+- Settings to change the minutes per side, rename the sides, and enter each side's witness names (two per side by default)
 - Keeps the screen awake while a clock is running (on supported browsers)
 - Survives a refresh, a closed tab, or a dead battery restart: the times are saved on the device
 - Keyboard shortcuts on a computer: `P` toggles Plaintiff, `D` toggles Defense, `Space` pauses both
@@ -49,7 +49,7 @@ Tip: on iPhone, use the Home Screen icon rather than a Safari tab. iOS can clear
 
 ## Updating
 
-If you edit the files and push them to GitHub, devices pick up the new version the next time they open the app with a connection (it takes effect on the following launch). To force a refresh everywhere, change the version string at the top of `sw.js` (for example `mock-trial-timer-v2` to `mock-trial-timer-v3`).
+If you edit the files and push them to GitHub, devices pick up the new version the next time they open the app with a connection (it takes effect on the following launch). To force a refresh everywhere, change the version string at the top of `sw.js` (for example `mock-trial-timer-v3` to `mock-trial-timer-v4`).
 
 ## Accuracy
 
