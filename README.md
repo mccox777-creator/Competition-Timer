@@ -4,16 +4,29 @@ A two-clock timer for mock trial competitions. One clock for the Plaintiff/Prose
 
 ## Features
 
-- Separate Start/Stop clock for each side, showing time used and time left
-- Starting one side automatically stops the other, so only one clock runs at a time
+- Separate Start/Pause clock for each side, showing total time used and total time left
+- Time for each activity: Opening, Direct, Cross, Redirect, Recross, Closing, and Rebuttal (Plaintiff/Prosecution only), with direct, cross, redirect, and recross tracked per witness
+- Pause for objections and resume: the time keeps going to the same activity
+- Switching activities while the clock runs splits the time at that moment
+- When one side picks Cross or Recross, it automatically selects the witness the other side is examining
+- Breakdown screen with each side's totals and every activity's time, plus a full log
+- Starting one side automatically pauses the other, so only one clock runs at a time
 - Shows overtime (in red) if a side goes past its allotment
 - Turns yellow at 5:00 remaining; phones that support it vibrate at 5:00, 1:00, and 0:00
-- Correction buttons (-1 min, -10 sec, +10 sec, +1 min) for fixing a late start or stop
-- Log of every start, stop, and correction, with a Copy button for pasting into a score sheet or email
-- Settings to change the minutes per side or rename the sides
+- Correction buttons (-1 min, -10 sec, +10 sec, +1 min) that fix the current activity's time (and the totals with it)
+- Copy All button for pasting the breakdown and log into a score sheet or email
+- Settings to change the minutes per side, rename the sides, and enter each side's witness names
 - Keeps the screen awake while a clock is running (on supported browsers)
 - Survives a refresh, a closed tab, or a dead battery restart: the times are saved on the device
-- Keyboard shortcuts on a computer: `P` toggles Plaintiff, `D` toggles Defense, `Space` stops both
+- Keyboard shortcuts on a computer: `P` toggles Plaintiff, `D` toggles Defense, `Space` pauses both
+
+## Using it during a trial
+
+1. Before trial, open **Settings** and enter each side's witnesses in the order they will be called.
+2. Tap the activity (for example **Opening**) on the side that is about to speak, then tap **Start**.
+3. When an objection is made, tap **Pause**. Tap **Resume** when the examination continues.
+4. When the activity changes, tap the new activity and, for examinations, the witness. You can do this while the clock is running or paused.
+5. Tap **Breakdown** at any time to see every activity's time for both sides.
 
 ## Put it on GitHub Pages
 
@@ -36,7 +49,7 @@ Tip: on iPhone, use the Home Screen icon rather than a Safari tab. iOS can clear
 
 ## Updating
 
-If you edit the files and push them to GitHub, devices pick up the new version the next time they open the app with a connection (it takes effect on the following launch). To force a refresh everywhere, change the version string at the top of `sw.js` (for example `mock-trial-timer-v1` to `mock-trial-timer-v2`).
+If you edit the files and push them to GitHub, devices pick up the new version the next time they open the app with a connection (it takes effect on the following launch). To force a refresh everywhere, change the version string at the top of `sw.js` (for example `mock-trial-timer-v2` to `mock-trial-timer-v3`).
 
 ## Accuracy
 

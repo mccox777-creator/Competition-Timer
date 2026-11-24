@@ -2,7 +2,7 @@
 // Strategy: serve from the device cache first, then refresh the cache in the background
 // whenever a connection happens to be available.
 // If you change the app and want every device to pick it up right away, bump the version below.
-const CACHE = 'mock-trial-timer-v1';
+const CACHE = 'mock-trial-timer-v2';
 
 const ASSETS = [
   './',
@@ -16,7 +16,9 @@ const ASSETS = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(cache => cache.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
   );
 });
 
